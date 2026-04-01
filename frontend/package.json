@@ -1,0 +1,44 @@
+{
+  "name": "calenda",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "next": "^15.3.0",
+    "react": "^19",
+    "react-dom": "^19",
+    "@fullcalendar/core": "^6.1.15",
+    "@fullcalendar/daygrid": "^6.1.15",
+    "@fullcalendar/interaction": "^6.1.15",
+    "@fullcalendar/react": "^6.1.15",
+    "@tanstack/react-query": "^5.56.2",
+    "zustand": "^4.5.4",
+    "recharts": "^2.12.7",
+    "clsx": "^2.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5",
+    "tailwindcss": "^3.4.10",
+    "postcss": "^8",
+    "autoprefixer": "^10",
+    "eslint": "^9",
+    "eslint-config-next": "^15.3.0",
+    "vitest": "^2.0.5",
+    "@vitejs/plugin-react": "^4.3.1",
+    "@testing-library/react": "^16.0.0",
+    "@testing-library/jest-dom": "^6.4.8",
+    "@testing-library/user-event": "^14.5.2",
+    "msw": "^2.4.1",
+    "jsdom": "^25.0.0"
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/home/mahlatse/.cache/calenda-venv/bin/python -m pytest tests/ -v --tb=short 2>&1)"
+    ]
+  }
+}

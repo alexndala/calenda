@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* FullCalendar overrides — left-border event chips */
+.fc-event {
+  @apply cursor-pointer rounded text-xs font-medium;
+  background: #f8fafc !important;
+  background-color: #f8fafc !important;
+  border: none !important;
+  border-left: 3px solid #1e293b !important;
+  color: #1e293b !important;
+  padding: 1px 4px;
+}
+
+/* FullCalendar nests text inside .fc-event-title — must target explicitly */
+.fc-event-title,
+.fc-event-title-container,
+.fc-daygrid-event .fc-event-title,
+.fc-daygrid-event-dot {
+  color: #1e293b !important;
+}
+
+/* Strip FullCalendar's inline bg that overrides our !important above */
+.fc-daygrid-event {
+  background-color: #f8fafc !important;
+  border: none !important;
+  border-left: 3px solid #1e293b !important;
+}
+
+.fc-event.event-earnings,
+.fc-daygrid-event.event-earnings {
+  border-left-color: #1e293b !important;
+}
+.fc-event.event-dividend,
+.fc-daygrid-event.event-dividend {
+  border-left-color: #64748b !important;
+}
+.fc-event.event-split,
+.fc-daygrid-event.event-split {
+  border-left-color: #cbd5e1 !important;
+}
+.fc-event.event-ipo,
+.fc-daygrid-event.event-ipo {
+  border-left-style: dashed !important;
+  border-left-color: #94a3b8 !important;
+}
+
+.fc-daygrid-event-harness {
+  margin-bottom: 1px;
+}
+
+.fc-more-link {
+  @apply text-xs text-slate-500 hover:text-slate-800;
+}

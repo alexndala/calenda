@@ -1,5 +1,4 @@
 """Portfolio risk analysis endpoint."""
-from __future__ import annotations
 import re
 
 from fastapi import APIRouter, HTTPException, Request

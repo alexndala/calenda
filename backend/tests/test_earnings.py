@@ -58,18 +58,24 @@ def test_get_earnings_events_skips_invalid_ticker():
 
 
 def test_beat_miss_calculation():
-    """Verify beat rate math: 3 beats in 4 quarters = 0.75."""
-    history_data = pd.DataFrame(
+    """Verify beat rate math: 3 beats in 4 quarters = 0.75.
+
+    Uses earnings_dates format (columns: EPS Estimate, Reported EPS) — the current
+    data source after the switch from earnings_history.
+    """
+    earnings_dates_data = pd.DataFrame(
         {
-            "epsActual": [1.2, 0.9, 1.5, 1.1],
-            "epsEstimate": [1.0, 1.0, 1.3, 1.0],
-            "revenueActual": [100e9, 90e9, 110e9, 95e9],
-            "revenueEstimate": [95e9, 95e9, 105e9, 100e9],
+            "EPS Estimate": [1.0, 1.0, 1.3, 1.0],
+            "Reported EPS": [1.2, 0.9, 1.5, 1.1],  # beats: Q1, Q3, Q4 = 3/4
+            "Surprise(%)": [20.0, -10.0, 15.4, 10.0],
         },
-        index=pd.to_datetime(["2025-01-30", "2025-04-30", "2025-07-30", "2025-10-30"]),
+        index=pd.DatetimeIndex(
+            pd.to_datetime(["2025-01-30", "2025-04-30", "2025-07-30", "2025-10-30"]),
+            tz="UTC",
+        ),
     )
 
-    mock_ticker_obj = _mock_ticker(earnings_history=history_data)
+    mock_ticker_obj = _mock_ticker(earnings_dates=earnings_dates_data)
     mock_ticker_obj.calendar = {}
 
     with patch("services.earnings.yf.Ticker", return_value=mock_ticker_obj), \
@@ -79,10 +85,24 @@ def test_beat_miss_calculation():
     assert detail is not None
     # Beats: Q1 (1.2>1.0), Q3 (1.5>1.3), Q4 (1.1>1.0) = 3/4 = 0.75
     assert detail.eps_beat_rate == 0.75
-    # Revenue beats: Q1, Q3 = 2/4 = 0.5
-    assert detail.rev_beat_rate == 0.5
+    # Revenue beat rate is None — earnings_dates doesn't include revenue data
+    assert detail.rev_beat_rate is None
 
 
 def test_earnings_detail_returns_none_for_invalid_ticker():
     result = get_earnings_detail("!INVALID!")
     assert result is None
+
+
+def test_jse_ticker_passes_validation():
+    """TICKER_RE must allow 2-letter suffix (.JO) — NPN.JO should reach yf.Ticker, not be skipped."""
+    calendar = {
+        "Earnings Date": [pd.Timestamp("2026-04-30")],
+        "EPS Estimate": [None],
+    }
+    mock_ticker = _mock_ticker(calendar=calendar)
+
+    with patch("services.earnings.yf.Ticker", return_value=mock_ticker) as mock_yf:
+        get_earnings_events(["NPN.JO"], date(2026, 4, 1), date(2026, 4, 30))
+
+    mock_yf.assert_called_once_with("NPN.JO")

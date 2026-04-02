@@ -19,7 +19,6 @@ yfinance exchange suffixes used:
 Note: yfinance earnings/EPS data coverage for non-US stocks is substantially thinner
 than for US stocks. Calendar dates usually work; beat/miss history often won't.
 """
-from __future__ import annotations
 import logging
 
 import pandas as pd

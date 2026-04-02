@@ -40,6 +40,16 @@ export interface PriceReactionDay {
   p75: number | null;
 }
 
+export interface InsiderTransaction {
+  date: string;           // "YYYY-MM-DD"
+  name: string;
+  role: string;
+  transaction_type: "Buy" | "Sell" | "Acquisition" | "Disposal" | "Unknown";
+  shares: number | null;
+  price_per_share: number | null;
+  value: number | null;
+}
+
 export interface EarningsDetail {
   eps_estimate: number | null;
   revenue_estimate: number | null;
@@ -50,6 +60,7 @@ export interface EarningsDetail {
   price_reaction_by_day: PriceReactionDay[];
   eps_trend: number[];
   insufficient_history: boolean;
+  insider_activity: InsiderTransaction[];
 }
 
 export interface TickerSearchResult {
@@ -78,6 +89,33 @@ export interface PortfolioRiskRow {
   expected_dollar_swing: number | null;
   eps_beat_rate: number | null;
   insufficient_history: boolean;
+}
+
+export interface FundHolding {
+  ticker: string;        // JSE code without .JO
+  company_name: string;
+  weight_pct: number;
+}
+
+export interface FundInfo {
+  code: string;
+  name: string;
+}
+
+export interface FundPosition {
+  fund_code: string;
+  fund_name: string;
+  allocation_pct: number;  // 0-100
+}
+
+export interface FundLookThroughRow {
+  ticker: string;                   // with .JO
+  company_name: string;
+  effective_weight_pct: number;
+  fund_source: string;
+  next_earnings_date: string | null;
+  days_to_earnings: number | null;
+  median_pct_move: number | null;
 }
 
 export interface EventFilters {

@@ -1,7 +1,28 @@
 {
   "permissions": {
     "allow": [
-      "Bash(/home/mahlatse/.cache/calenda-venv/bin/python -m pytest tests/ -v --tb=short 2>&1)"
+      "Bash(/home/mahlatse/.cache/calenda-venv/bin/python -m pytest tests/ -v --tb=short 2>&1)",
+      "Skill(plan-eng-review)",
+      "Bash(\"/mnt/c/Users/user/quant-stuff/calenda/backend/~/.cache/calenda-venv/Scripts/python.exe\" -c \"from bs4 import BeautifulSoup; print\\('bs4 available'\\)\" 2>&1)",
+      "Bash(\"/mnt/c/Users/user/quant-stuff/calenda/backend/~/.cache/calenda-venv/Scripts/python.exe\" -m pytest tests/test_sens_scraper.py -v 2>&1)",
+      "Bash(\"/mnt/c/Users/user/quant-stuff/calenda/backend/~/.cache/calenda-venv/Scripts/python.exe\" -m pytest tests/ -v 2>&1)",
+      "Skill(office-hours)",
+      "Bash(source ~/.cache/calenda-venv/bin/activate)",
+      "Bash(python3 -c \"import main; print\\(''startup OK''\\)\")",
+      "Bash(xargs sed:*)",
+      "Bash(python3 -m pytest tests/ -v)",
+      "WebFetch(domain:www.fundsdata.co.za)",
+      "WebFetch(domain:www.profiledata.co.za)",
+      "WebSearch",
+      "WebFetch(domain:marriott.profiledata.co.za)",
+      "WebFetch(domain:fundsdata.co.za)",
+      "Bash(python:*)",
+      "Bash(python3:*)",
+      "Bash(venv/bin/pytest tests/test_fund_holdings.py -v 2>&1)",
+      "Bash(pip3 show:*)",
+      "Read(//home/mahlatse/.cache/calenda-venv/bin/**)",
+      "Bash(/home/mahlatse/.cache/calenda-venv/bin/pytest /mnt/c/Users/user/quant-stuff/calenda/backend/tests/test_fund_holdings.py -v)",
+      "Bash(/home/mahlatse/.cache/calenda-venv/bin/pytest /mnt/c/Users/user/quant-stuff/calenda/backend/tests/ -v 2>&1)"
     ]
   }
 }

@@ -1,5 +1,4 @@
 """Dividend events: upcoming ex-dividend dates and amounts."""
-from __future__ import annotations
 import logging
 import re
 from datetime import date

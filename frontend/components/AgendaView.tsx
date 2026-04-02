@@ -166,6 +166,9 @@ export function AgendaView() {
                 {ownedTickers.has(e.ticker) && (
                   <span className="ml-1 text-amber-500 text-xs" title="In your portfolio">★</span>
                 )}
+                {e.ticker.endsWith('.JO') && (
+                  <span className="ml-1 text-xs bg-green-100 text-green-700 px-1 rounded font-medium">SA</span>
+                )}
               </td>
               <td className="px-3 py-2 text-slate-600 truncate max-w-[200px]">{e.company_name}</td>
               <td className="px-3 py-2">

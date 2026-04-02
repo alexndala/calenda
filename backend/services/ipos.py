@@ -2,7 +2,6 @@
 IPO calendar service using Alpha Vantage free tier.
 25 requests/day cap — data is cached for 72h and synced in background once per day.
 """
-from __future__ import annotations
 import logging
 import os
 from datetime import date

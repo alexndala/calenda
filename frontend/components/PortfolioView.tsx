@@ -1,8 +1,10 @@
 "use client";
+import { useState } from "react";
 import { useCalendaStore } from "@/lib/store";
 import { usePortfolioAnalysis } from "@/lib/api";
 import { CsvUpload } from "@/components/CsvUpload";
 import { UpcomingExposureTable, AllPositionsTable } from "@/components/PortfolioRiskTable";
+import { FundsView } from "@/components/FundsView";
 import type { PortfolioRiskRow } from "@/lib/types";
 
 function fmtDollars(n: number, decimals = 0): string {
@@ -72,6 +74,7 @@ function SummaryStats({ rows }: { rows: PortfolioRiskRow[] }) {
 }
 
 export function PortfolioView() {
+  const [portfolioTab, setPortfolioTab] = useState<"positions" | "funds">("positions");
   const { positions, setPositions, clearPositions, openEvent, currentDateRange } =
     useCalendaStore();
 
@@ -83,126 +86,175 @@ export function PortfolioView() {
     openEvent(ticker, ticker);
   }
 
-  // --- Empty state: no positions loaded ---
+  // Sub-tab bar — always visible so user can switch between Positions and Funds
+  const tabBar = (
+    <div className="flex border-b border-slate-200 px-6 pt-4 bg-white">
+      <button
+        onClick={() => setPortfolioTab("positions")}
+        className={`px-4 py-2 text-sm font-medium -mb-px border-b-2 transition-colors ${
+          portfolioTab === "positions"
+            ? "border-slate-900 text-slate-900"
+            : "border-transparent text-slate-500 hover:text-slate-700"
+        }`}
+      >
+        Positions
+      </button>
+      <button
+        onClick={() => setPortfolioTab("funds")}
+        className={`px-4 py-2 text-sm font-medium -mb-px border-b-2 transition-colors ${
+          portfolioTab === "funds"
+            ? "border-slate-900 text-slate-900"
+            : "border-transparent text-slate-500 hover:text-slate-700"
+        }`}
+      >
+        Funds
+      </button>
+    </div>
+  );
+
+  if (portfolioTab === "funds") {
+    return (
+      <div className="flex flex-col flex-1 overflow-hidden">
+        {tabBar}
+        <FundsView />
+      </div>
+    );
+  }
+
+  // --- Positions tab ---
+
+  // Empty state: no positions loaded
   if (positions.length === 0) {
     return (
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-xl mx-auto">
-          <h2 className="text-base font-semibold text-slate-900 mb-1">Portfolio Risk Dashboard</h2>
-          <p className="text-sm text-slate-500 mb-6">
-            Upload your broker CSV to see upcoming earnings exposure, expected dollar swings, and
-            your full position summary.
-          </p>
-          <CsvUpload onImport={setPositions} />
+      <div className="flex flex-col flex-1 overflow-hidden">
+        {tabBar}
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="max-w-xl mx-auto">
+            <h2 className="text-base font-semibold text-slate-900 mb-1">Portfolio Risk Dashboard</h2>
+            <p className="text-sm text-slate-500 mb-6">
+              Upload your broker CSV to see upcoming earnings exposure, expected dollar swings, and
+              your full position summary.
+            </p>
+            <CsvUpload onImport={setPositions} />
+          </div>
         </div>
       </div>
     );
   }
 
-  // --- Loading state ---
+  // Loading state
   if (isLoading) {
     return (
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="animate-pulse space-y-4">
-          <div className="grid grid-cols-4 gap-3">
-            {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="bg-slate-100 rounded-lg h-20" />
-            ))}
+      <div className="flex flex-col flex-1 overflow-hidden">
+        {tabBar}
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="animate-pulse space-y-4">
+            <div className="grid grid-cols-4 gap-3">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="bg-slate-100 rounded-lg h-20" />
+              ))}
+            </div>
+            <div className="bg-slate-100 rounded-lg h-48" />
+            <div className="bg-slate-100 rounded-lg h-64" />
           </div>
-          <div className="bg-slate-100 rounded-lg h-48" />
-          <div className="bg-slate-100 rounded-lg h-64" />
         </div>
       </div>
     );
   }
 
-  // --- Error state ---
+  // Error state
   if (isError) {
     return (
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-xl mx-auto rounded-md bg-red-50 border border-red-200 p-4">
-          <p className="text-sm font-medium text-red-700 mb-1">Failed to analyze portfolio</p>
-          <p className="text-xs text-red-600">{(error as Error)?.message ?? "Unknown error"}</p>
-          <button
-            onClick={clearPositions}
-            className="mt-3 text-xs text-red-600 underline hover:no-underline"
-          >
-            Clear positions and start over
-          </button>
+      <div className="flex flex-col flex-1 overflow-hidden">
+        {tabBar}
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="max-w-xl mx-auto rounded-md bg-red-50 border border-red-200 p-4">
+            <p className="text-sm font-medium text-red-700 mb-1">Failed to analyze portfolio</p>
+            <p className="text-xs text-red-600">{(error as Error)?.message ?? "Unknown error"}</p>
+            <button
+              onClick={clearPositions}
+              className="mt-3 text-xs text-red-600 underline hover:no-underline"
+            >
+              Clear positions and start over
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 space-y-6">
-      {/* Header row */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-base font-semibold text-slate-900">Portfolio Risk Dashboard</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            {positions.length} positions loaded
-          </p>
+    <div className="flex flex-col flex-1 overflow-hidden">
+      {tabBar}
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        {/* Header row */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-slate-900">Portfolio Risk Dashboard</h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {positions.length} positions loaded
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-slate-600 cursor-pointer hover:text-slate-900 flex items-center gap-1.5">
+              <span className="inline-block px-2 py-1 bg-slate-100 rounded text-xs hover:bg-slate-200 transition-colors">
+                Replace CSV
+              </span>
+              <input
+                type="file"
+                accept=".csv,.txt"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = (ev) => {
+                    const text = (ev.target?.result as string) ?? "";
+                    import("@/lib/csvParser").then(({ parseCsvPositions }) => {
+                      try {
+                        const result = parseCsvPositions(text);
+                        if (result.positions.length > 0) setPositions(result.positions);
+                      } catch {
+                        // silently ignore — user can use the full CsvUpload flow
+                      }
+                    });
+                  };
+                  reader.readAsText(file);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+            <button
+              onClick={clearPositions}
+              className="text-xs text-slate-400 hover:text-red-600 transition-colors px-2 py-1 rounded"
+            >
+              Clear
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <label className="text-xs text-slate-600 cursor-pointer hover:text-slate-900 flex items-center gap-1.5">
-            <span className="inline-block px-2 py-1 bg-slate-100 rounded text-xs hover:bg-slate-200 transition-colors">
-              Replace CSV
-            </span>
-            <input
-              type="file"
-              accept=".csv,.txt"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                  const text = (ev.target?.result as string) ?? "";
-                  import("@/lib/csvParser").then(({ parseCsvPositions }) => {
-                    try {
-                      const result = parseCsvPositions(text);
-                      if (result.positions.length > 0) setPositions(result.positions);
-                    } catch {
-                      // silently ignore — user can use the full CsvUpload flow
-                    }
-                  });
-                };
-                reader.readAsText(file);
-                e.target.value = "";
-              }}
-            />
-          </label>
-          <button
-            onClick={clearPositions}
-            className="text-xs text-slate-400 hover:text-red-600 transition-colors px-2 py-1 rounded"
-          >
-            Clear
-          </button>
-        </div>
+
+        {/* Summary stats */}
+        <SummaryStats rows={rows} />
+
+        {/* Upcoming earnings exposure */}
+        <section>
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">
+            Upcoming Earnings Exposure
+            <span className="ml-2 text-xs font-normal text-slate-400">(next 30 days)</span>
+          </h3>
+          <div className="bg-white border border-slate-200 rounded-lg">
+            <UpcomingExposureTable rows={rows} onTickerClick={handleTickerClick} />
+          </div>
+        </section>
+
+        {/* All positions */}
+        <section className="pb-6">
+          <h3 className="text-sm font-semibold text-slate-700 mb-3">All Positions</h3>
+          <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+            <AllPositionsTable rows={rows} />
+          </div>
+        </section>
       </div>
-
-      {/* Summary stats */}
-      <SummaryStats rows={rows} />
-
-      {/* Upcoming earnings exposure */}
-      <section>
-        <h3 className="text-sm font-semibold text-slate-700 mb-3">
-          Upcoming Earnings Exposure
-          <span className="ml-2 text-xs font-normal text-slate-400">(next 30 days)</span>
-        </h3>
-        <div className="bg-white border border-slate-200 rounded-lg">
-          <UpcomingExposureTable rows={rows} onTickerClick={handleTickerClick} />
-        </div>
-      </section>
-
-      {/* All positions */}
-      <section className="pb-6">
-        <h3 className="text-sm font-semibold text-slate-700 mb-3">All Positions</h3>
-        <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
-          <AllPositionsTable rows={rows} />
-        </div>
-      </section>
     </div>
   );
 }

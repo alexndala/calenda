@@ -5,7 +5,6 @@ Computes expected earnings-driven dollar swing for each position:
   expected_dollar_swing = abs(max_abs_median_pct / 100) × market_value
 where max_abs_median_pct = max(abs(median_pct)) across days [-1, 0, +1].
 """
-from __future__ import annotations
 import asyncio
 import logging
 import re

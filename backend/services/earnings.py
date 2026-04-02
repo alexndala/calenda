@@ -1,7 +1,6 @@
 """
 Earnings data service: next event dates, EPS/revenue estimates, beat/miss history.
 """
-from __future__ import annotations
 import logging
 import re
 from datetime import date, datetime
@@ -10,12 +9,15 @@ from typing import Optional
 import pandas as pd
 import yfinance as yf
 
+from cache import events_cache
 from models import CalendarEvent, EarningsDetail, EventType
 from services.price_history import compute_price_reaction
+from services.sens_scraper import get_jse_earnings_dates
+from services.insider_activity import get_insider_activity
 
 logger = logging.getLogger(__name__)
 
-TICKER_RE = re.compile(r"^[A-Z]{1,5}(\.[A-Z])?$")
+TICKER_RE = re.compile(r"^[A-Z]{1,5}(\.[A-Z]{1,2})?$")
 
 
 def _safe_float(val) -> Optional[float]:
@@ -34,6 +36,19 @@ def get_earnings_events(
     Returns lightweight CalendarEvent list (no analytics — those are on-demand).
     """
     events: list[CalendarEvent] = []
+
+    # Batch-fetch SENS dates once for all JSE tickers in this call.
+    # Cached at 4-hour TTL — SENS announcements are published at most a few times per day.
+    jse_tickers = [t for t in tickers if t.endswith(".JO")]
+    sens_dates: dict[str, date] = {}
+    if jse_tickers:
+        cache_key = f"sens_dates:{date.today().isoformat()}"
+        cached = events_cache.get(cache_key)
+        if cached is not None:
+            sens_dates = cached
+        else:
+            sens_dates = get_jse_earnings_dates(jse_tickers)
+            events_cache.set(cache_key, sens_dates, ttl=4 * 3600)
 
     for ticker in tickers:
         if not TICKER_RE.match(ticker):
@@ -70,7 +85,7 @@ def get_earnings_events(
                         timing = "TNS"
 
             if next_date is None:
-                # Fallback: earnings_dates index (includes historical + upcoming)
+                # Fallback 1: earnings_dates index (includes historical + upcoming)
                 try:
                     ed = t.earnings_dates
                     if ed is not None and not ed.empty:
@@ -79,6 +94,12 @@ def get_earnings_events(
                             next_date = future.index[0].date()
                 except Exception:
                     pass
+
+            if next_date is None and ticker.endswith(".JO"):
+                # Fallback 2: SENS scraper (JSE only, near-term ≤30 days)
+                next_date = sens_dates.get(ticker)
+                if next_date:
+                    timing = None  # SENS announcements don't include BMO/AMC timing
 
             if next_date is None:
                 continue
@@ -205,6 +226,13 @@ def get_earnings_detail(ticker: str) -> Optional[EarningsDetail]:
 
         insufficient = len(beat_miss_history) < 4
 
+        # Insider activity — cache at 1-hour TTL (Form 4 / SENS director dealings)
+        insider_cache_key = f"insider:{ticker}"
+        insider_activity = events_cache.get(insider_cache_key)
+        if insider_activity is None:
+            insider_activity = get_insider_activity(ticker)
+            events_cache.set(insider_cache_key, insider_activity, ttl=3600)
+
         return EarningsDetail(
             eps_estimate=eps_estimate,
             revenue_estimate=rev_estimate,
@@ -214,6 +242,7 @@ def get_earnings_detail(ticker: str) -> Optional[EarningsDetail]:
             price_reaction_by_day=price_reaction_by_day,
             eps_trend=eps_trend[-6:],  # last 6Q only
             insufficient_history=insufficient,
+            insider_activity=insider_activity,
         )
 
     except Exception as exc:

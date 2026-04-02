@@ -1,12 +1,22 @@
 import { create } from "zustand";
-import type { EventType, IndexName, Position, TimingFilter, ViewMode } from "./types";
+import type { EventType, FundPosition, IndexName, Position, TimingFilter, ViewMode } from "./types";
 
 const POSITIONS_KEY = "calenda-positions";
+const FUND_POSITIONS_KEY = "calenda-fund-positions";
 
 function loadPositions(): Position[] {
   if (typeof window === "undefined") return [];
   try {
     return JSON.parse(localStorage.getItem(POSITIONS_KEY) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function loadFundPositions(): FundPosition[] {
+  if (typeof window === "undefined") return [];
+  try {
+    return JSON.parse(localStorage.getItem(FUND_POSITIONS_KEY) || "[]");
   } catch {
     return [];
   }
@@ -19,6 +29,9 @@ interface CalendaStore {
   positions: Position[];
   setPositions: (positions: Position[]) => void;
   clearPositions: () => void;
+
+  fundPositions: FundPosition[];
+  setFundPositions: (positions: FundPosition[]) => void;
 
   selectedTypes: Set<EventType>;
   toggleType: (type: EventType) => void;
@@ -61,6 +74,14 @@ export const useCalendaStore = create<CalendaStore>((set) => ({
       localStorage.removeItem(POSITIONS_KEY);
     }
     set({ positions: [] });
+  },
+
+  fundPositions: loadFundPositions(),
+  setFundPositions: (positions) => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(FUND_POSITIONS_KEY, JSON.stringify(positions));
+    }
+    set({ fundPositions: positions });
   },
 
   // Default: Earnings + Dividends checked; Splits + IPOs unchecked

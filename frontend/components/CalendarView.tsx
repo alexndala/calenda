@@ -49,6 +49,7 @@ export function CalendarView() {
       marketCap: e.market_cap,
       ticker: e.ticker,
       companyName: e.company_name,
+      is_jse: e.ticker.endsWith('.JO'),
     },
   }));
 
@@ -99,6 +100,14 @@ export function CalendarView() {
         }}
         height="100%"
         eventClassNames={(arg) => [`event-${arg.event.extendedProps.eventType}`]}
+        eventContent={(arg) => (
+          <div className="flex items-center gap-0.5 truncate px-1">
+            <span className="truncate">{arg.event.title}</span>
+            {arg.event.extendedProps?.is_jse && (
+              <span className="shrink-0 text-[9px] bg-green-100 text-green-700 px-0.5 rounded">SA</span>
+            )}
+          </div>
+        )}
       />
     </div>
   );

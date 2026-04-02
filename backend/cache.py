@@ -4,7 +4,6 @@ TTL cache with market-session-aware expiry.
 During live market hours (9:30am–4:00pm ET, Mon–Fri), events expire quickly (5 min).
 Outside market hours, cache is valid until next market open — no new data arrives anyway.
 """
-from __future__ import annotations
 import time
 from datetime import datetime, timedelta
 from threading import Lock

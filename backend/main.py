@@ -2,9 +2,9 @@
 Calenda — Earnings & Corporate Actions Research Cockpit
 FastAPI backend entry point.
 """
-from __future__ import annotations
 import asyncio
 import logging
+import os
 import sys
 from contextlib import asynccontextmanager
 from datetime import date, timedelta
@@ -18,6 +18,7 @@ from slowapi.util import get_remote_address
 
 from cache import events_cache
 from routers.events import router as events_router
+from routers.funds import router as funds_router
 from routers.portfolio import router as portfolio_router
 from routers.tickers import router as tickers_router
 from services.earnings import get_earnings_events
@@ -79,15 +80,20 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+_default_origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+_extra = os.environ.get("CORS_ORIGINS", "").split(",")
+_origins = _default_origins + [o.strip() for o in _extra if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 app.include_router(events_router)
+app.include_router(funds_router)
 app.include_router(tickers_router)
 app.include_router(portfolio_router)
 

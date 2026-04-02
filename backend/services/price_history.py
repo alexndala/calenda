@@ -7,7 +7,6 @@ Aggregate across events using MEDIAN (not mean) to reduce outlier impact.
 
 Returns [{day: int, median_pct: float, p25: float, p75: float}] for days -5..+5.
 """
-from __future__ import annotations
 import logging
 from datetime import date, timedelta
 from typing import Optional

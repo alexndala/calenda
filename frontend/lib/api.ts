@@ -2,6 +2,9 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
   CalendarEvent,
   EarningsDetail,
+  FundInfo,
+  FundLookThroughRow,
+  FundPosition,
   IndexName,
   PortfolioRiskRow,
   Position,
@@ -106,5 +109,26 @@ export function useTickerSearch(query: string) {
     enabled: query.length >= 1,
     staleTime: 1000 * 60 * 60, // 1h
     retry: 0,
+  });
+}
+
+export function useFundSearch(query: string) {
+  return useQuery<FundInfo[], Error>({
+    queryKey: ["fundSearch", query],
+    queryFn: () =>
+      fetchJSON<FundInfo[]>(`${BASE}/funds/search?q=${encodeURIComponent(query)}`),
+    enabled: query.length >= 2,
+    staleTime: 1000 * 60 * 60, // 1h
+    retry: 0,
+  });
+}
+
+export function useFundAnalysis(positions: FundPosition[]) {
+  return useQuery<FundLookThroughRow[], Error>({
+    queryKey: ["fundAnalysis", positions.map((p) => `${p.fund_code}:${p.allocation_pct}`).join(",")],
+    queryFn: () => postJSON<FundLookThroughRow[]>(`${BASE}/funds/analyze`, positions),
+    enabled: positions.length > 0,
+    staleTime: 1000 * 60 * 5, // 5 min
+    retry: 1,
   });
 }

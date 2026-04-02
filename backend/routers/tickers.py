@@ -1,5 +1,4 @@
 """Ticker search and index constituent endpoints."""
-from __future__ import annotations
 import logging
 import re
 from typing import Optional

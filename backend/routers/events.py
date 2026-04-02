@@ -1,7 +1,6 @@
 """
 Events router: lightweight event list and on-demand detail panel.
 """
-from __future__ import annotations
 import asyncio
 import logging
 from datetime import date

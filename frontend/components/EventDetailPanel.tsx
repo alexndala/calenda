@@ -1,7 +1,7 @@
 "use client";
 import { useEventDetail } from "@/lib/api";
 import { useCalendaStore } from "@/lib/store";
-import type { BeatMissEntry, PriceReactionDay } from "@/lib/types";
+import type { BeatMissEntry, EarningsDetail, InsiderTransaction, PriceReactionDay } from "@/lib/types";
 import {
   Area,
   AreaChart,
@@ -142,9 +142,176 @@ function EpsTrendChart({ trend }: { trend: number[] }) {
   );
 }
 
+function InsiderActivitySection({ transactions }: { transactions: InsiderTransaction[] }) {
+  if (transactions.length === 0) return null;
+  return (
+    <section>
+      <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+        Insider Activity (90 days)
+      </h3>
+      <div className="space-y-1.5">
+        {transactions.map((t, i) => (
+          <div key={i} className="flex items-center justify-between text-xs gap-2">
+            <span className="text-slate-400 shrink-0">{t.date}</span>
+            <span className="text-slate-600 truncate flex-1">{t.name} <span className="text-slate-400">({t.role})</span></span>
+            <span
+              className={
+                t.transaction_type === "Buy" || t.transaction_type === "Acquisition"
+                  ? "text-green-600 font-medium shrink-0"
+                  : t.transaction_type === "Sell" || t.transaction_type === "Disposal"
+                  ? "text-red-500 font-medium shrink-0"
+                  : "text-slate-400 shrink-0"
+              }
+            >
+              {t.transaction_type}
+            </span>
+            {t.shares != null && (
+              <span className="text-slate-400 shrink-0">{t.shares.toLocaleString()} sh</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+interface DetailProps { detail: EarningsDetail }
+
+function JSEDetailView({ detail }: DetailProps) {
+  return (
+    <>
+      <section>
+        <p className="text-xs text-slate-500 bg-slate-50 rounded p-2">
+          Price reaction data powered by yfinance — EPS consensus coverage
+          for JSE-listed stocks is limited.
+        </p>
+      </section>
+
+      {detail.price_reaction_by_day.length > 0 ? (
+        <section>
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+            Price Reaction (JSE)
+          </h3>
+          <PriceReactionChart days={detail.price_reaction_by_day} />
+          <p className="text-xs text-slate-400 mt-1">
+            Median % move relative to results day (day 0), shaded band = p25–p75
+          </p>
+        </section>
+      ) : (
+        <section>
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+            Price Reaction
+          </h3>
+          <p className="text-xs text-slate-400">
+            Insufficient price history — yfinance coverage varies for JSE stocks.
+          </p>
+        </section>
+      )}
+
+      <InsiderActivitySection transactions={detail.insider_activity ?? []} />
+    </>
+  );
+}
+
+function USDetailView({ detail }: DetailProps) {
+  return (
+    <>
+      {/* Estimates */}
+      <section>
+        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+          Upcoming Estimates
+        </h3>
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-slate-500">EPS Estimate</span>
+            <span className="font-medium">
+              {detail.eps_estimate != null
+                ? `$${detail.eps_estimate.toFixed(2)}`
+                : "—"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-slate-500">Revenue Estimate</span>
+            <span className="font-medium">
+              {detail.revenue_estimate != null
+                ? `$${(detail.revenue_estimate / 1e9).toFixed(2)}B`
+                : "—"}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* Beat/miss rates */}
+      {detail.beat_miss_history.length > 0 && (
+        <section>
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+            Beat/Miss History (Last {detail.beat_miss_history.length}Q)
+          </h3>
+          {detail.insufficient_history && (
+            <p className="text-xs text-amber-600 mb-2">
+              Fewer than 4 quarters available — rates may not be representative.
+            </p>
+          )}
+          <div className="space-y-1 mb-3">
+            <BeatRate rate={detail.eps_beat_rate} label="EPS Beat Rate" />
+            <BeatRate rate={detail.rev_beat_rate} label="Revenue Beat Rate" />
+          </div>
+          <BeatMissChart history={detail.beat_miss_history} />
+          <p className="text-xs text-slate-400 mt-1">EPS surprise % per quarter (green=beat, red=miss)</p>
+        </section>
+      )}
+
+      {detail.beat_miss_history.length === 0 && (
+        <section>
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+            Beat/Miss History
+          </h3>
+          <p className="text-xs text-slate-400">Insufficient history</p>
+        </section>
+      )}
+
+      {/* Price reaction */}
+      {detail.price_reaction_by_day.length > 0 && (
+        <section>
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+            Avg Price Reaction (±5 Days)
+          </h3>
+          <PriceReactionChart days={detail.price_reaction_by_day} />
+          <p className="text-xs text-slate-400 mt-1">
+            Median % move relative to earnings day (day 0), shaded band = p25–p75
+          </p>
+        </section>
+      )}
+
+      {/* EPS trend */}
+      {detail.eps_trend.length > 0 && (
+        <section>
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+            EPS Trend (Last {detail.eps_trend.length}Q)
+          </h3>
+          <EpsTrendChart trend={detail.eps_trend} />
+        </section>
+      )}
+
+      <InsiderActivitySection transactions={detail.insider_activity ?? []} />
+
+      {/* Portfolio impact placeholder */}
+      <section>
+        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+          Portfolio Impact
+        </h3>
+        <div className="rounded bg-slate-50 border border-dashed border-slate-200 p-3 text-xs text-slate-400 text-center">
+          Coming in phase 2 — add your positions to see $ impact
+        </div>
+      </section>
+    </>
+  );
+}
+
 export function EventDetailPanel() {
   const { openEventTicker, closeEvent } = useCalendaStore();
   const { data: detail, isLoading, isError } = useEventDetail(openEventTicker);
+  const isJSE = openEventTicker?.endsWith('.JO') ?? false;
 
   // Close on Escape
   useEffect(() => {
@@ -197,94 +364,7 @@ export function EventDetailPanel() {
           )}
 
           {detail && (
-            <>
-              {/* Estimates */}
-              <section>
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                  Upcoming Estimates
-                </h3>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-500">EPS Estimate</span>
-                    <span className="font-medium">
-                      {detail.eps_estimate != null
-                        ? `$${detail.eps_estimate.toFixed(2)}`
-                        : "—"}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-500">Revenue Estimate</span>
-                    <span className="font-medium">
-                      {detail.revenue_estimate != null
-                        ? `$${(detail.revenue_estimate / 1e9).toFixed(2)}B`
-                        : "—"}
-                    </span>
-                  </div>
-                </div>
-              </section>
-
-              {/* Beat/miss rates */}
-              {detail.beat_miss_history.length > 0 && (
-                <section>
-                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                    Beat/Miss History (Last {detail.beat_miss_history.length}Q)
-                  </h3>
-                  {detail.insufficient_history && (
-                    <p className="text-xs text-amber-600 mb-2">
-                      Fewer than 4 quarters available — rates may not be representative.
-                    </p>
-                  )}
-                  <div className="space-y-1 mb-3">
-                    <BeatRate rate={detail.eps_beat_rate} label="EPS Beat Rate" />
-                    <BeatRate rate={detail.rev_beat_rate} label="Revenue Beat Rate" />
-                  </div>
-                  <BeatMissChart history={detail.beat_miss_history} />
-                  <p className="text-xs text-slate-400 mt-1">EPS surprise % per quarter (green=beat, red=miss)</p>
-                </section>
-              )}
-
-              {detail.beat_miss_history.length === 0 && (
-                <section>
-                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
-                    Beat/Miss History
-                  </h3>
-                  <p className="text-xs text-slate-400">Insufficient history</p>
-                </section>
-              )}
-
-              {/* Price reaction */}
-              {detail.price_reaction_by_day.length > 0 && (
-                <section>
-                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                    Avg Price Reaction (±5 Days)
-                  </h3>
-                  <PriceReactionChart days={detail.price_reaction_by_day} />
-                  <p className="text-xs text-slate-400 mt-1">
-                    Median % move relative to earnings day (day 0), shaded band = p25–p75
-                  </p>
-                </section>
-              )}
-
-              {/* EPS trend */}
-              {detail.eps_trend.length > 0 && (
-                <section>
-                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                    EPS Trend (Last {detail.eps_trend.length}Q)
-                  </h3>
-                  <EpsTrendChart trend={detail.eps_trend} />
-                </section>
-              )}
-
-              {/* Portfolio impact placeholder */}
-              <section>
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                  Portfolio Impact
-                </h3>
-                <div className="rounded bg-slate-50 border border-dashed border-slate-200 p-3 text-xs text-slate-400 text-center">
-                  Coming in phase 2 — add your positions to see $ impact
-                </div>
-              </section>
-            </>
+            isJSE ? <JSEDetailView detail={detail} /> : <USDetailView detail={detail} />
           )}
         </div>
       </aside>

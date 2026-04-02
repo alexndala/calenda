@@ -1,4 +1,3 @@
-from __future__ import annotations
 from datetime import date
 from enum import Enum
 from typing import Optional
@@ -52,6 +51,43 @@ class PortfolioRiskRow(BaseModel):
     insufficient_history: bool = False
 
 
+class InsiderTransaction(BaseModel):
+    date: date
+    name: str
+    role: str                            # "CEO", "CFO", "Director", etc.
+    transaction_type: str                # "Buy" | "Sell" (US) | "Acquisition" | "Disposal" (JSE)
+    shares: Optional[int] = None
+    price_per_share: Optional[float] = None
+    value: Optional[float] = None        # total transaction value in local currency
+
+
+class FundHolding(BaseModel):
+    ticker: str          # JSE ticker e.g. "NPN" (no .JO suffix — raw from profiledata)
+    company_name: str
+    weight_pct: float    # e.g. 8.5 for 8.5%
+
+
+class FundInfo(BaseModel):
+    code: str            # profiledata fund code e.g. "AGBF"
+    name: str
+
+
+class FundPosition(BaseModel):
+    fund_code: str       # profiledata code
+    fund_name: str
+    allocation_pct: float  # adviser's allocation, 0-100
+
+
+class FundLookThroughRow(BaseModel):
+    ticker: str                          # JSE ticker with .JO suffix
+    company_name: str
+    effective_weight_pct: float          # adviser_alloc * holding_weight / 100
+    fund_source: str                     # which fund contributes this holding
+    next_earnings_date: Optional[date] = None
+    days_to_earnings: Optional[int] = None
+    median_pct_move: Optional[float] = None
+
+
 class EarningsDetail(BaseModel):
     eps_estimate: Optional[float] = None
     revenue_estimate: Optional[float] = None
@@ -64,3 +100,5 @@ class EarningsDetail(BaseModel):
     price_reaction_by_day: list[dict] = []  # [{day, median_pct, p25, p75}]
     eps_trend: list[float] = []  # last 6Q actual EPS, ascending chronological
     insufficient_history: bool = False  # true when < 4Q of data available
+    insider_activity: list[InsiderTransaction] = []  # director dealings / Form 4 (90-day window)
+

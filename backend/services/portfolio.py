@@ -5,6 +5,7 @@ Computes expected earnings-driven dollar swing for each position:
   expected_dollar_swing = abs(max_abs_median_pct / 100) × market_value
 where max_abs_median_pct = max(abs(median_pct)) across days [-1, 0, +1].
 """
+
 import asyncio
 import logging
 import re
@@ -71,7 +72,11 @@ def _get_next_earnings_date(t: yf.Ticker) -> Optional[date]:
             if raw:
                 d = pd.Timestamp(raw[0]).date()
                 return d if d >= today else None
-        elif cal is not None and hasattr(cal, "columns") and "Earnings Date" in cal.columns:
+        elif (
+            cal is not None
+            and hasattr(cal, "columns")
+            and "Earnings Date" in cal.columns
+        ):
             raw = cal.loc["Earnings Date"].values
             if len(raw) > 0:
                 d = pd.Timestamp(raw[0]).date()
@@ -125,7 +130,7 @@ def _analyze_one(pos: PortfolioPosition) -> PortfolioRiskRow:
                 )
 
         # EPS analytics — try detail cache first to avoid redundant yfinance calls
-        cache_key = f"detail:{ticker}"
+        cache_key = f"detail:portfolio:{ticker}"
         cached = detail_cache.get(cache_key)
         detail: Optional[EarningsDetail] = None
 
@@ -136,7 +141,7 @@ def _analyze_one(pos: PortfolioPosition) -> PortfolioRiskRow:
                 detail = None
 
         if detail is None:
-            detail = get_earnings_detail(ticker)
+            detail = get_earnings_detail(ticker, use_openbb_fundamentals=False)
             if detail:
                 detail_cache.set(cache_key, detail.model_dump())
 
@@ -199,5 +204,8 @@ async def analyze_portfolio(
     # Sort: rows with expected_dollar_swing first, descending; None last
     return sorted(
         rows,
-        key=lambda r: (r.expected_dollar_swing is None, -(r.expected_dollar_swing or 0)),
+        key=lambda r: (
+            r.expected_dollar_swing is None,
+            -(r.expected_dollar_swing or 0),
+        ),
     )

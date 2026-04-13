@@ -2,6 +2,7 @@
 Calenda — Earnings & Corporate Actions Research Cockpit
 FastAPI backend entry point.
 """
+
 import asyncio
 import logging
 import os
@@ -9,6 +10,7 @@ import sys
 from contextlib import asynccontextmanager
 from datetime import date, timedelta
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -17,6 +19,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from cache import events_cache
+from config import source_health
 from routers.events import router as events_router
 from routers.funds import router as funds_router
 from routers.portfolio import router as portfolio_router
@@ -30,6 +33,11 @@ logging.basicConfig(
     stream=sys.stdout,
 )
 logger = logging.getLogger(__name__)
+
+# Load local .env in development so optional providers (e.g. Alpha Vantage)
+# are enabled without requiring --env-file flags.
+load_dotenv()
+logger.info("Source routing: %s", source_health())
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -101,3 +109,8 @@ app.include_router(portfolio_router)
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/api/sources/health")
+async def sources_health():
+    return source_health()

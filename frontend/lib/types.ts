@@ -61,6 +61,16 @@ export interface EarningsDetail {
   eps_trend: number[];
   insufficient_history: boolean;
   insider_activity: InsiderTransaction[];
+  sources?: Record<string, string>;
+}
+
+export interface DividendDetails {
+  amount: number | null;
+  currency: string | null;          // e.g. "ZAR", "USD", "GBP", "EUR", "AUD"
+  payment_date: string | null;      // "YYYY-MM-DD" or null if not yet announced
+  last_trading_date: string | null; // ex_date minus 1 business day
+  ordinary_amount: number | null;
+  special_amount: number | null;    // null — yfinance has no split
 }
 
 export interface TickerSearchResult {

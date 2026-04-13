@@ -91,6 +91,11 @@ calenda/
 
 ## Notes
 
+- **Source routing**:
+  - Price/events backbone: `yfinance`
+  - Fundamentals (detail endpoint only): `OpenBB` when enabled, fallback to `yfinance`
+  - IPO calendar: `Alpha Vantage` (only when `ALPHA_VANTAGE_KEY` is set)
+- **Provider health**: call `GET /api/sources/health` to verify active providers and key presence.
 - **yfinance reliability**: ~10-15% of tickers return empty earnings history. UI shows "Insufficient history" gracefully.
 - **Cold start**: ~45-60s to pre-warm S&P 500 cache on first server start. Requests hit cache after that.
 - **Rate limiting**: 60 req/min on `/api/events`, 30 req/min on detail endpoint.

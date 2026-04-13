@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { EventType, FundPosition, IndexName, Position, TimingFilter, ViewMode } from "./types";
+import type { CalendarEvent, EventType, FundPosition, IndexName, Position, TimingFilter, ViewMode } from "./types";
 
 const POSITIONS_KEY = "calenda-positions";
 const FUND_POSITIONS_KEY = "calenda-fund-positions";
@@ -47,7 +47,8 @@ interface CalendaStore {
 
   openEventId: string | null;
   openEventTicker: string | null;
-  openEvent: (id: string, ticker: string) => void;
+  openEventData: CalendarEvent | null;
+  openEvent: (id: string, ticker: string, event?: CalendarEvent) => void;
   closeEvent: () => void;
 
   currentDateRange: { start: Date; end: Date };
@@ -110,11 +111,12 @@ export const useCalendaStore = create<CalendaStore>((set) => ({
 
   openEventId: null,
   openEventTicker: null,
-  openEvent: (id, ticker) => set({ openEventId: id, openEventTicker: ticker }),
-  closeEvent: () => set({ openEventId: null, openEventTicker: null }),
+  openEventData: null,
+  openEvent: (id, ticker, event) => set({ openEventId: id, openEventTicker: ticker, openEventData: event ?? null }),
+  closeEvent: () => set({ openEventId: null, openEventTicker: null, openEventData: null }),
 
   currentDateRange: { start: firstOfMonth, end: lastOfMonth },
   setDateRange: (start, end) => {
-    set({ currentDateRange: { start, end }, openEventId: null, openEventTicker: null });
+    set({ currentDateRange: { start, end }, openEventId: null, openEventTicker: null, openEventData: null });
   },
 }));

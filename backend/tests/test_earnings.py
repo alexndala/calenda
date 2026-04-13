@@ -1,6 +1,8 @@
 """Unit tests: earnings beat/miss calculation with mocked yfinance."""
+
 import sys
 import os
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from datetime import date
@@ -51,7 +53,9 @@ def test_get_earnings_events_skips_out_of_range():
 
 def test_get_earnings_events_skips_invalid_ticker():
     with patch("services.earnings.yf.Ticker") as mock_yf:
-        events = get_earnings_events(["INVALID!TICKER"], date(2026, 4, 1), date(2026, 4, 30))
+        events = get_earnings_events(
+            ["INVALID!TICKER"], date(2026, 4, 1), date(2026, 4, 30)
+        )
 
     mock_yf.assert_not_called()
     assert events == []
@@ -78,8 +82,11 @@ def test_beat_miss_calculation():
     mock_ticker_obj = _mock_ticker(earnings_dates=earnings_dates_data)
     mock_ticker_obj.calendar = {}
 
-    with patch("services.earnings.yf.Ticker", return_value=mock_ticker_obj), \
-         patch("services.earnings.compute_price_reaction", return_value=[]):
+    with (
+        patch("services.earnings.yf.Ticker", return_value=mock_ticker_obj),
+        patch("services.earnings.compute_price_reaction", return_value=[]),
+        patch("services.earnings.get_openbb_fundamentals", return_value={}),
+    ):
         detail = get_earnings_detail("AAPL")
 
     assert detail is not None
@@ -92,6 +99,46 @@ def test_beat_miss_calculation():
 def test_earnings_detail_returns_none_for_invalid_ticker():
     result = get_earnings_detail("!INVALID!")
     assert result is None
+
+
+def test_openbb_fundamentals_preferred_in_detail():
+    """When OpenBB fundamentals are present, detail should use them."""
+    mock_ticker_obj = _mock_ticker(calendar={})
+    obb_payload = {
+        "eps_estimate": 2.5,
+        "revenue_estimate": 130_000_000_000,
+        "analyst_count": 42,
+        "beat_miss_history": [
+            {
+                "quarter": "2025-Q4",
+                "eps_actual": 2.1,
+                "eps_estimate": 2.0,
+                "eps_beat": True,
+                "rev_actual": 120_000_000_000,
+                "rev_estimate": 118_000_000_000,
+                "rev_beat": True,
+            }
+        ],
+        "eps_beat_rate": 1.0,
+        "rev_beat_rate": 1.0,
+        "eps_trend": [1.5, 1.7, 1.9, 2.1],
+        "earnings_dates": [date(2025, 12, 30)],
+    }
+
+    with (
+        patch("services.earnings.yf.Ticker", return_value=mock_ticker_obj),
+        patch("services.earnings.get_openbb_fundamentals", return_value=obb_payload),
+        patch("services.earnings.compute_price_reaction", return_value=[]),
+    ):
+        detail = get_earnings_detail("AAPL")
+
+    assert detail is not None
+    assert detail.eps_estimate == 2.5
+    assert detail.revenue_estimate == 130_000_000_000
+    assert detail.analyst_count == 42
+    assert detail.eps_beat_rate == 1.0
+    assert detail.rev_beat_rate == 1.0
+    assert detail.sources["fundamentals"] == "openbb"
 
 
 def test_jse_ticker_passes_validation():

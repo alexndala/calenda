@@ -1,6 +1,7 @@
 """
 Events router: lightweight event list and on-demand detail panel.
 """
+
 import asyncio
 import logging
 from datetime import date
@@ -33,9 +34,14 @@ limiter = Limiter(key_func=get_remote_address)
 
 VALID_TYPES = {"earnings", "dividend", "split", "ipo"}
 VALID_INDICES = {
-    "sp500", "nasdaq100",
-    "jse_top40", "jse_allshare",
-    "topix", "ftse100", "ftse_china_a50", "eurostoxx50",
+    "sp500",
+    "nasdaq100",
+    "jse_top40",
+    "jse_allshare",
+    "topix",
+    "ftse100",
+    "ftse_china_a50",
+    "eurostoxx50",
     "custom",
 }
 
@@ -128,7 +134,7 @@ async def get_event_detail(request: Request, ticker: str):
     if cached is not None:
         return cached
 
-    detail = await asyncio.to_thread(get_earnings_detail, ticker)
+    detail = await asyncio.to_thread(get_earnings_detail, ticker, True)
     if detail is None:
         detail_cache.set_not_found(cache_key)
         raise HTTPException(status_code=404, detail=f"No earnings data for {ticker}")

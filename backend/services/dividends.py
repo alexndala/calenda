@@ -6,11 +6,13 @@ from typing import Optional
 
 import pandas as pd
 import yfinance as yf
+from pandas.tseries.offsets import BDay
 
 from models import CalendarEvent, EventType
 
 logger = logging.getLogger(__name__)
-TICKER_RE = re.compile(r"^[A-Z]{1,5}(\.[A-Z])?$")
+# Allow 1-5 uppercase letters + optional 1-2 letter exchange suffix (.JO, .L, .DE, etc.)
+TICKER_RE = re.compile(r"^[A-Z]{1,5}(\.[A-Z]{1,2})?$")
 
 
 def _safe_float(val) -> Optional[float]:
@@ -19,6 +21,23 @@ def _safe_float(val) -> Optional[float]:
         return None if pd.isna(f) else f
     except (TypeError, ValueError):
         return None
+
+
+def _parse_date(val) -> Optional[date]:
+    """Parse a date from a Unix timestamp (int/float) or pd.Timestamp."""
+    if val is None:
+        return None
+    try:
+        if isinstance(val, (int, float)):
+            return date.fromtimestamp(val)
+        return pd.Timestamp(val).date()
+    except Exception:
+        return None
+
+
+def _last_trading_date(ex_date: date) -> date:
+    """Return the last day to buy shares and still qualify for the dividend (ex_date - 1 business day)."""
+    return (pd.Timestamp(ex_date) - BDay(1)).date()
 
 
 def get_dividend_events(tickers: list[str], start: date, end: date) -> list[CalendarEvent]:
@@ -32,18 +51,10 @@ def get_dividend_events(tickers: list[str], start: date, end: date) -> list[Cale
             info = t.info or {}
             company_name = info.get("longName") or info.get("shortName") or ticker
             market_cap = _safe_float(info.get("marketCap"))
+            currency: Optional[str] = info.get("currency")
 
             # Try next ex-dividend date from info
-            next_div_date: Optional[date] = None
-            next_div_date_raw = info.get("exDividendDate")
-            if next_div_date_raw:
-                try:
-                    if isinstance(next_div_date_raw, (int, float)):
-                        next_div_date = date.fromtimestamp(next_div_date_raw)
-                    else:
-                        next_div_date = pd.Timestamp(next_div_date_raw).date()
-                except Exception:
-                    pass
+            next_div_date: Optional[date] = _parse_date(info.get("exDividendDate"))
 
             # Also check historical dividends series for upcoming entries
             try:
@@ -61,6 +72,21 @@ def get_dividend_events(tickers: list[str], start: date, end: date) -> list[Cale
                 continue
 
             dividend_amount = _safe_float(info.get("lastDividendValue"))
+            last_trading_date = _last_trading_date(next_div_date)
+
+            # Try to get payment date from the ticker calendar
+            payment_date: Optional[date] = None
+            try:
+                cal = t.calendar
+                raw_pay: object = None
+                if isinstance(cal, dict):
+                    raw_pay = cal.get("Dividend Date")
+                elif cal is not None and hasattr(cal, "to_dict"):
+                    cal_dict = cal.to_dict()
+                    raw_pay = cal_dict.get("Dividend Date", {}).get(0)
+                payment_date = _parse_date(raw_pay)
+            except Exception:
+                pass
 
             events.append(
                 CalendarEvent(
@@ -70,7 +96,15 @@ def get_dividend_events(tickers: list[str], start: date, end: date) -> list[Cale
                     date=next_div_date,
                     type=EventType.DIVIDEND,
                     market_cap=market_cap,
-                    details={"amount": dividend_amount},
+                    details={
+                        "amount": dividend_amount,
+                        "currency": currency,
+                        "payment_date": payment_date.isoformat() if payment_date else None,
+                        "last_trading_date": last_trading_date.isoformat(),
+                        # yfinance provides no ordinary/special split — ordinary_amount mirrors amount
+                        "ordinary_amount": dividend_amount,
+                        "special_amount": None,
+                    },
                 )
             )
         except Exception as exc:

@@ -50,12 +50,13 @@ export function CalendarView() {
       ticker: e.ticker,
       companyName: e.company_name,
       is_jse: e.ticker.endsWith('.JO'),
+      calendarEvent: e,
     },
   }));
 
   function handleEventClick(arg: EventClickArg) {
-    const { ticker } = arg.event.extendedProps as { ticker: string };
-    openEvent(arg.event.id, ticker);
+    const { ticker, calendarEvent } = arg.event.extendedProps as { ticker: string; calendarEvent: CalendarEvent };
+    openEvent(arg.event.id, ticker, calendarEvent);
   }
 
   function handleDatesSet(arg: DatesSetArg) {

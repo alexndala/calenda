@@ -1,7 +1,7 @@
 "use client";
 import { useEventDetail } from "@/lib/api";
 import { useCalendaStore } from "@/lib/store";
-import type { BeatMissEntry, EarningsDetail, InsiderTransaction, PriceReactionDay } from "@/lib/types";
+import type { BeatMissEntry, CalendarEvent, DividendDetails, EarningsDetail, InsiderTransaction, PriceReactionDay } from "@/lib/types";
 import {
   Area,
   AreaChart,
@@ -175,6 +175,72 @@ function InsiderActivitySection({ transactions }: { transactions: InsiderTransac
   );
 }
 
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  ZAR: "R", USD: "$", GBP: "£", EUR: "€", AUD: "A$", GBX: "p",
+};
+function currencySymbol(c: string | null): string {
+  return (c && CURRENCY_SYMBOLS[c]) ? CURRENCY_SYMBOLS[c] : (c ?? "$");
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between text-sm">
+      <span className="text-slate-500">{label}</span>
+      <span className="font-medium text-slate-800">{value}</span>
+    </div>
+  );
+}
+
+function DividendDetailView({ event }: { event: CalendarEvent }) {
+  const det = event.details as unknown as DividendDetails;
+  const sym = currencySymbol(det.currency);
+
+  return (
+    <>
+      <section>
+        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+          Dividend Details
+        </h3>
+        <div className="space-y-1.5">
+          <DetailRow
+            label="Amount"
+            value={det.amount != null ? `${sym}${det.amount.toFixed(4)}/sh` : "—"}
+          />
+          <DetailRow label="Currency" value={det.currency ?? "—"} />
+          <DetailRow label="Ex-Dividend Date" value={event.date} />
+          <DetailRow
+            label="Last Trading Date"
+            value={det.last_trading_date ?? "—"}
+          />
+          <DetailRow
+            label="Payment Date"
+            value={det.payment_date ?? "Not yet announced"}
+          />
+        </div>
+      </section>
+
+      <section>
+        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+          Dividend Composition
+        </h3>
+        <div className="space-y-1.5">
+          <DetailRow
+            label="Ordinary"
+            value={det.ordinary_amount != null ? `${sym}${det.ordinary_amount.toFixed(4)}` : "—"}
+          />
+          <DetailRow
+            label="Special"
+            value={det.special_amount != null ? `${sym}${det.special_amount.toFixed(4)}` : "N/A"}
+          />
+        </div>
+        <p className="text-xs text-slate-400 mt-2">
+          Ordinary/special split is not available from free data sources.
+        </p>
+      </section>
+    </>
+  );
+}
+
 interface DetailProps { detail: EarningsDetail }
 
 function JSEDetailView({ detail }: DetailProps) {
@@ -216,6 +282,12 @@ function JSEDetailView({ detail }: DetailProps) {
 function USDetailView({ detail }: DetailProps) {
   return (
     <>
+      <section>
+        <p className="text-xs text-slate-500 bg-slate-50 rounded p-2">
+          Price/reaction: {detail.sources?.price ?? "yfinance"} · Fundamentals: {detail.sources?.fundamentals ?? "yfinance"}
+        </p>
+      </section>
+
       {/* Estimates */}
       <section>
         <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
@@ -236,6 +308,12 @@ function USDetailView({ detail }: DetailProps) {
               {detail.revenue_estimate != null
                 ? `$${(detail.revenue_estimate / 1e9).toFixed(2)}B`
                 : "—"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-slate-500">Analyst Count</span>
+            <span className="font-medium">
+              {detail.analyst_count != null ? detail.analyst_count : "—"}
             </span>
           </div>
         </div>
@@ -309,8 +387,9 @@ function USDetailView({ detail }: DetailProps) {
 }
 
 export function EventDetailPanel() {
-  const { openEventTicker, closeEvent } = useCalendaStore();
-  const { data: detail, isLoading, isError } = useEventDetail(openEventTicker);
+  const { openEventTicker, openEventData, closeEvent } = useCalendaStore();
+  const isDividend = openEventData?.type === "dividend";
+  const { data: detail, isLoading, isError } = useEventDetail(isDividend ? null : openEventTicker);
   const isJSE = openEventTicker?.endsWith('.JO') ?? false;
 
   // Close on Escape
@@ -337,7 +416,7 @@ export function EventDetailPanel() {
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 sticky top-0 bg-white">
           <div>
             <h2 className="font-semibold text-slate-900">{openEventTicker}</h2>
-            <p className="text-xs text-slate-500">Earnings Analytics</p>
+            <p className="text-xs text-slate-500">{isDividend ? "Dividend Details" : "Earnings Analytics"}</p>
           </div>
           <button
             onClick={closeEvent}
@@ -349,7 +428,11 @@ export function EventDetailPanel() {
         </div>
 
         <div className="p-4 space-y-6">
-          {isLoading && (
+          {isDividend && openEventData && (
+            <DividendDetailView event={openEventData} />
+          )}
+
+          {!isDividend && isLoading && (
             <>
               <SectionSkeleton />
               <SectionSkeleton />
@@ -357,13 +440,13 @@ export function EventDetailPanel() {
             </>
           )}
 
-          {isError && (
+          {!isDividend && isError && (
             <div className="rounded bg-red-50 border border-red-100 p-3 text-sm text-red-600">
               No earnings analytics available for {openEventTicker}.
             </div>
           )}
 
-          {detail && (
+          {!isDividend && detail && (
             isJSE ? <JSEDetailView detail={detail} /> : <USDetailView detail={detail} />
           )}
         </div>

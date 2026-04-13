@@ -2,23 +2,29 @@
 IPO calendar service using Alpha Vantage free tier.
 25 requests/day cap — data is cached for 72h and synced in background once per day.
 """
+
 import logging
 import os
 from datetime import date
 
 import httpx
 
+from config import ipo_enabled
 from models import CalendarEvent, EventType
 
 logger = logging.getLogger(__name__)
 
-AV_KEY = os.getenv("ALPHA_VANTAGE_KEY", "demo")
 AV_IPO_URL = "https://www.alphavantage.co/query?function=IPO_CALENDAR&apikey={key}"
 
 
 async def fetch_ipo_calendar() -> list[dict]:
     """Fetch raw IPO calendar from Alpha Vantage. Returns list of raw dicts."""
-    url = AV_IPO_URL.format(key=AV_KEY)
+    av_key = os.getenv("ALPHA_VANTAGE_KEY", "").strip()
+    if not ipo_enabled() or not av_key:
+        logger.info("Alpha Vantage IPO source disabled")
+        return []
+
+    url = AV_IPO_URL.format(key=av_key)
     try:
         async with httpx.AsyncClient(timeout=15.0) as client:
             resp = await client.get(url)
@@ -39,7 +45,9 @@ async def fetch_ipo_calendar() -> list[dict]:
         return []
 
 
-def parse_ipo_events(raw_rows: list[dict], start: date, end: date) -> list[CalendarEvent]:
+def parse_ipo_events(
+    raw_rows: list[dict], start: date, end: date
+) -> list[CalendarEvent]:
     events = []
     for row in raw_rows:
         try:
@@ -63,7 +71,11 @@ def parse_ipo_events(raw_rows: list[dict], start: date, end: date) -> list[Calen
                     company_name=company,
                     date=ipo_date,
                     type=EventType.IPO,
-                    details={"price_range": price_range, "shares": shares},
+                    details={
+                        "price_range": price_range,
+                        "shares": shares,
+                        "source": "alphavantage",
+                    },
                 )
             )
         except Exception as exc:

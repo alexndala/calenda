@@ -15,6 +15,13 @@ function formatMarketCap(cap: number | null): string {
   return `$${cap}`;
 }
 
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  ZAR: "R", USD: "$", GBP: "£", EUR: "€", AUD: "A$", GBX: "p",
+};
+function currencySymbol(c: unknown): string {
+  return (typeof c === "string" && CURRENCY_SYMBOLS[c]) ? CURRENCY_SYMBOLS[c] : (typeof c === "string" ? c : "$");
+}
+
 function formatDetail(e: CalendarEvent): string {
   if (e.type === "earnings") {
     const est = e.details.eps_estimate;
@@ -22,7 +29,8 @@ function formatDetail(e: CalendarEvent): string {
   }
   if (e.type === "dividend") {
     const amt = e.details.amount;
-    return amt != null ? `$${Number(amt).toFixed(4)}/sh` : "—";
+    const sym = currencySymbol(e.details.currency);
+    return amt != null ? `${sym}${Number(amt).toFixed(4)}/sh` : "—";
   }
   if (e.type === "split") {
     const ratio = e.details.ratio;
@@ -157,7 +165,7 @@ export function AgendaView() {
           {sorted.map((e: CalendarEvent) => (
             <tr
               key={e.id}
-              onClick={() => openEvent(e.id, e.ticker)}
+              onClick={() => openEvent(e.id, e.ticker, e)}
               className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
             >
               <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{e.date}</td>

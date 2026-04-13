@@ -1,16 +1,19 @@
 """
 Earnings data service: next event dates, EPS/revenue estimates, beat/miss history.
 """
+
 import logging
 import re
-from datetime import date, datetime
+from datetime import date
 from typing import Optional
 
 import pandas as pd
 import yfinance as yf
 
 from cache import events_cache
+from config import openbb_fundamentals_enabled
 from models import CalendarEvent, EarningsDetail, EventType
+from services.fundamentals import get_openbb_fundamentals
 from services.price_history import compute_price_reaction
 from services.sens_scraper import get_jse_earnings_dates
 from services.insider_activity import get_insider_activity
@@ -136,7 +139,9 @@ def get_earnings_events(
     return events
 
 
-def get_earnings_detail(ticker: str) -> Optional[EarningsDetail]:
+def get_earnings_detail(
+    ticker: str, use_openbb_fundamentals: bool = True
+) -> Optional[EarningsDetail]:
     """
     Fetch full analytics for a single ticker's earnings detail panel.
     Includes beat/miss history (last 8Q), price reaction (±5 days), EPS trend.
@@ -146,83 +151,98 @@ def get_earnings_detail(ticker: str) -> Optional[EarningsDetail]:
 
     try:
         t = yf.Ticker(ticker)
-        info = t.info or {}
+
+        # OpenBB fundamentals are used only when explicitly enabled (detail endpoint).
+        # If unavailable/empty we fall back to yfinance-derived fundamentals.
+        obb_data = (
+            get_openbb_fundamentals(ticker)
+            if use_openbb_fundamentals and openbb_fundamentals_enabled()
+            else {}
+        )
 
         # Upcoming estimate
         calendar = t.calendar
-        eps_estimate = None
-        rev_estimate = None
+        eps_estimate = _safe_float(obb_data.get("eps_estimate"))
+        rev_estimate = _safe_float(obb_data.get("revenue_estimate"))
+        analyst_count = obb_data.get("analyst_count")
         if isinstance(calendar, dict):
-            eps_estimate = _safe_float(calendar.get("EPS Estimate"))
-            rev_estimate = _safe_float(calendar.get("Revenue Estimate"))
+            if eps_estimate is None:
+                eps_estimate = _safe_float(calendar.get("EPS Estimate"))
+            if rev_estimate is None:
+                rev_estimate = _safe_float(calendar.get("Revenue Estimate"))
 
         # Historical earnings (beat/miss)
-        beat_miss_history: list[dict] = []
-        eps_beat_rate: Optional[float] = None
-        rev_beat_rate: Optional[float] = None
-        eps_trend: list[float] = []
-        earnings_dates_for_reaction: list[date] = []
+        beat_miss_history: list[dict] = obb_data.get("beat_miss_history", [])
+        eps_beat_rate: Optional[float] = obb_data.get("eps_beat_rate")
+        rev_beat_rate: Optional[float] = obb_data.get("rev_beat_rate")
+        eps_trend: list[float] = obb_data.get("eps_trend", [])
+        earnings_dates_for_reaction: list[date] = obb_data.get("earnings_dates", [])
 
-        try:
-            # earnings_dates is more reliable than earnings_history in current yfinance.
-            # Past rows have "Reported EPS" + "EPS Estimate"; future rows have "EPS Estimate" only.
-            ed = t.earnings_dates
-            if ed is not None and not ed.empty:
-                now = pd.Timestamp.now(tz=ed.index.tz)
+        if not beat_miss_history:
+            try:
+                # earnings_dates is more reliable than earnings_history in current yfinance.
+                # Past rows have "Reported EPS" + "EPS Estimate"; future rows have "EPS Estimate" only.
+                ed = t.earnings_dates
+                if ed is not None and not ed.empty:
+                    now = pd.Timestamp.now(tz=ed.index.tz)
 
-                # Fallback: get upcoming EPS estimate from earnings_dates if calendar missed it
-                future_ed = ed[ed.index > now]
-                if not future_ed.empty and eps_estimate is None:
-                    eps_estimate = _safe_float(future_ed.iloc[-1].get("EPS Estimate"))
+                    # Fallback: get upcoming EPS estimate from earnings_dates if calendar missed it
+                    future_ed = ed[ed.index > now]
+                    if not future_ed.empty and eps_estimate is None:
+                        eps_estimate = _safe_float(
+                            future_ed.iloc[-1].get("EPS Estimate")
+                        )
 
-                # Historical beat/miss: past dates that have an actual result
-                past = ed[ed.index <= now].dropna(subset=["Reported EPS"]).tail(8)
-                total = len(past)
-                eps_beats = 0
+                    # Historical beat/miss: past dates that have an actual result
+                    past = ed[ed.index <= now].dropna(subset=["Reported EPS"]).tail(8)
+                    total = len(past)
+                    eps_beats = 0
 
-                for idx, row in past.iterrows():
-                    eps_actual = _safe_float(row.get("Reported EPS"))
-                    eps_est_q = _safe_float(row.get("EPS Estimate"))
+                    for idx, row in past.iterrows():
+                        eps_actual = _safe_float(row.get("Reported EPS"))
+                        eps_est_q = _safe_float(row.get("EPS Estimate"))
 
-                    eps_beat = None
-                    if eps_actual is not None and eps_est_q is not None:
-                        eps_beat = eps_actual >= eps_est_q
-                        if eps_beat:
-                            eps_beats += 1
+                        eps_beat = None
+                        if eps_actual is not None and eps_est_q is not None:
+                            eps_beat = eps_actual >= eps_est_q
+                            if eps_beat:
+                                eps_beats += 1
 
-                    # Compute quarter string from date (avoid invalid %q strftime code)
-                    quarter_str = f"{idx.year}-Q{(idx.month - 1) // 3 + 1}"
+                        # Compute quarter string from date (avoid invalid %q strftime code)
+                        quarter_str = f"{idx.year}-Q{(idx.month - 1) // 3 + 1}"
 
-                    beat_miss_history.append(
-                        {
-                            "quarter": quarter_str,
-                            "eps_actual": eps_actual,
-                            "eps_estimate": eps_est_q,
-                            "eps_beat": eps_beat,
-                            "rev_actual": None,   # not available from earnings_dates
-                            "rev_estimate": None,
-                            "rev_beat": None,
-                        }
-                    )
+                        beat_miss_history.append(
+                            {
+                                "quarter": quarter_str,
+                                "eps_actual": eps_actual,
+                                "eps_estimate": eps_est_q,
+                                "eps_beat": eps_beat,
+                                "rev_actual": None,  # not available from earnings_dates
+                                "rev_estimate": None,
+                                "rev_beat": None,
+                            }
+                        )
 
-                    if eps_actual is not None:
-                        eps_trend.append(eps_actual)
+                        if eps_actual is not None:
+                            eps_trend.append(eps_actual)
 
-                    # Collect the date for price reaction calculation
-                    if hasattr(idx, "date"):
-                        earnings_dates_for_reaction.append(idx.date())
+                        # Collect the date for price reaction calculation
+                        if hasattr(idx, "date"):
+                            earnings_dates_for_reaction.append(idx.date())
 
-                if total > 0:
-                    eps_beat_rate = round(eps_beats / total, 4)
-                    # rev_beat_rate stays None — no revenue data in earnings_dates
+                    if total > 0:
+                        eps_beat_rate = round(eps_beats / total, 4)
+                        # rev_beat_rate stays None — no revenue data in earnings_dates
 
-        except Exception as exc:
-            logger.warning("earnings_dates failed for %s: %s", ticker, exc)
+            except Exception as exc:
+                logger.warning("earnings_dates failed for %s: %s", ticker, exc)
 
         # Price reaction
         price_reaction_by_day: list[dict] = []
         if earnings_dates_for_reaction:
-            price_reaction_by_day = compute_price_reaction(ticker, earnings_dates_for_reaction)
+            price_reaction_by_day = compute_price_reaction(
+                ticker, earnings_dates_for_reaction
+            )
 
         insufficient = len(beat_miss_history) < 4
 
@@ -236,6 +256,7 @@ def get_earnings_detail(ticker: str) -> Optional[EarningsDetail]:
         return EarningsDetail(
             eps_estimate=eps_estimate,
             revenue_estimate=rev_estimate,
+            analyst_count=analyst_count,
             beat_miss_history=beat_miss_history,
             eps_beat_rate=eps_beat_rate,
             rev_beat_rate=rev_beat_rate,
@@ -243,6 +264,11 @@ def get_earnings_detail(ticker: str) -> Optional[EarningsDetail]:
             eps_trend=eps_trend[-6:],  # last 6Q only
             insufficient_history=insufficient,
             insider_activity=insider_activity,
+            sources={
+                "price": "yfinance",
+                "fundamentals": "openbb" if bool(obb_data) else "yfinance",
+                "insider_activity": "sens" if ticker.endswith(".JO") else "openbb",
+            },
         )
 
     except Exception as exc:

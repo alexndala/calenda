@@ -22,7 +22,13 @@
       "Bash(pip3 show:*)",
       "Read(//home/mahlatse/.cache/calenda-venv/bin/**)",
       "Bash(/home/mahlatse/.cache/calenda-venv/bin/pytest /mnt/c/Users/user/quant-stuff/calenda/backend/tests/test_fund_holdings.py -v)",
-      "Bash(/home/mahlatse/.cache/calenda-venv/bin/pytest /mnt/c/Users/user/quant-stuff/calenda/backend/tests/ -v 2>&1)"
+      "Bash(/home/mahlatse/.cache/calenda-venv/bin/pytest /mnt/c/Users/user/quant-stuff/calenda/backend/tests/ -v 2>&1)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(npm run:*)",
+      "Bash(echo \"Frontend PID: $!\")",
+      "Read(//tmp/**)",
+      "Bash(npx tsc:*)",
+      "Bash(~/.cache/calenda-venv/bin/python -c \"from services.dividends import get_dividend_events, _last_trading_date, _parse_date; from datetime import date; print\\('imports ok'\\); print\\(_last_trading_date\\(date\\(2026, 4, 15\\)\\)\\)\")"
     ]
   }
 }

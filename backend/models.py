@@ -34,9 +34,9 @@ class PortfolioRiskRow(BaseModel):
     shares: float
     avg_cost: float
     current_price: Optional[float] = None
-    market_value: Optional[float] = None         # shares × current_price
-    unrealized_pnl: Optional[float] = None       # (current_price - avg_cost) × shares
-    unrealized_pnl_pct: Optional[float] = None   # unrealized_pnl / (avg_cost × shares)
+    market_value: Optional[float] = None  # shares × current_price
+    unrealized_pnl: Optional[float] = None  # (current_price - avg_cost) × shares
+    unrealized_pnl_pct: Optional[float] = None  # unrealized_pnl / (avg_cost × shares)
     next_earnings_date: Optional[date] = None
     days_to_earnings: Optional[int] = None
     # max(abs(median_pct)) across days [-1, 0, +1] in price_reaction_by_day
@@ -54,35 +54,35 @@ class PortfolioRiskRow(BaseModel):
 class InsiderTransaction(BaseModel):
     date: date
     name: str
-    role: str                            # "CEO", "CFO", "Director", etc.
-    transaction_type: str                # "Buy" | "Sell" (US) | "Acquisition" | "Disposal" (JSE)
+    role: str  # "CEO", "CFO", "Director", etc.
+    transaction_type: str  # "Buy" | "Sell" (US) | "Acquisition" | "Disposal" (JSE)
     shares: Optional[int] = None
     price_per_share: Optional[float] = None
-    value: Optional[float] = None        # total transaction value in local currency
+    value: Optional[float] = None  # total transaction value in local currency
 
 
 class FundHolding(BaseModel):
-    ticker: str          # JSE ticker e.g. "NPN" (no .JO suffix — raw from profiledata)
+    ticker: str  # JSE ticker e.g. "NPN" (no .JO suffix — raw from profiledata)
     company_name: str
-    weight_pct: float    # e.g. 8.5 for 8.5%
+    weight_pct: float  # e.g. 8.5 for 8.5%
 
 
 class FundInfo(BaseModel):
-    code: str            # profiledata fund code e.g. "AGBF"
+    code: str  # profiledata fund code e.g. "AGBF"
     name: str
 
 
 class FundPosition(BaseModel):
-    fund_code: str       # profiledata code
+    fund_code: str  # profiledata code
     fund_name: str
     allocation_pct: float  # adviser's allocation, 0-100
 
 
 class FundLookThroughRow(BaseModel):
-    ticker: str                          # JSE ticker with .JO suffix
+    ticker: str  # JSE ticker with .JO suffix
     company_name: str
-    effective_weight_pct: float          # adviser_alloc * holding_weight / 100
-    fund_source: str                     # which fund contributes this holding
+    effective_weight_pct: float  # adviser_alloc * holding_weight / 100
+    fund_source: str  # which fund contributes this holding
     next_earnings_date: Optional[date] = None
     days_to_earnings: Optional[int] = None
     median_pct_move: Optional[float] = None
@@ -93,12 +93,18 @@ class EarningsDetail(BaseModel):
     revenue_estimate: Optional[float] = None
     analyst_count: Optional[int] = None
     # beat: actual >= estimate (no threshold — raw beat/miss)
-    beat_miss_history: list[dict] = []  # [{quarter, eps_actual, eps_estimate, eps_beat, rev_actual, rev_estimate, rev_beat}]
-    eps_beat_rate: Optional[float] = None   # 0.0–1.0, e.g. 0.875 = beat 7 of last 8Q
+    beat_miss_history: list[
+        dict
+    ] = []  # [{quarter, eps_actual, eps_estimate, eps_beat, rev_actual, rev_estimate, rev_beat}]
+    eps_beat_rate: Optional[float] = None  # 0.0–1.0, e.g. 0.875 = beat 7 of last 8Q
     rev_beat_rate: Optional[float] = None
     # median % closing price change per day, -5..+5 relative to earnings day (day 0)
     price_reaction_by_day: list[dict] = []  # [{day, median_pct, p25, p75}]
     eps_trend: list[float] = []  # last 6Q actual EPS, ascending chronological
     insufficient_history: bool = False  # true when < 4Q of data available
-    insider_activity: list[InsiderTransaction] = []  # director dealings / Form 4 (90-day window)
-
+    insider_activity: list[
+        InsiderTransaction
+    ] = []  # director dealings / Form 4 (90-day window)
+    # Data-source routing used to produce this detail payload.
+    # Example: {"price": "yfinance", "fundamentals": "openbb", "insider_activity": "openbb"}
+    sources: dict = {}
